@@ -8,38 +8,80 @@ import {
   RadioStatus,
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+// Default live backend URL for external/Netlify deployments
+const DEFAULT_BACKEND_URL = 'https://ais-dev-zqepgxm3sm4ndvgrpz52jq-494631811355.us-east1.run.app';
+
+export function getResolvedBaseUrl(): string {
+  if (typeof window === 'undefined') return '';
+  
+  // 1. Check custom user-configured URL in localStorage
+  const custom = localStorage.getItem('realaudio_api_base');
+  if (custom !== null) {
+    return custom.replace(/\/+$/, '');
+  }
+
+  // 2. Check environment variable
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL.replace(/\/+$/, '');
+  }
+
+  // 3. If running on Netlify or external domain without custom backend, connect to default live cloud backend
+  if (window.location.hostname.includes('netlify.app') || window.location.hostname.includes('taupe-dragon')) {
+    return DEFAULT_BACKEND_URL;
+  }
+
+  // 4. Same origin (local / dev server)
+  return '';
+}
 
 export const api = {
+  getBaseUrl(): string {
+    return getResolvedBaseUrl();
+  },
+
+  setBaseUrl(url: string): void {
+    const clean = url.trim().replace(/\/+$/, '');
+    if (!clean) {
+      localStorage.removeItem('realaudio_api_base');
+    } else {
+      localStorage.setItem('realaudio_api_base', clean);
+    }
+  },
+
   async getStatus(): Promise<RadioStatus> {
-    const res = await fetch(`${API_BASE}/api/radio/status`);
+    const base = getResolvedBaseUrl();
+    const res = await fetch(`${base}/api/radio/status`);
     if (!res.ok) throw new Error('Falha ao obter status do servidor');
     return res.json();
   },
 
   async getNowPlaying(): Promise<NowPlayingData> {
-    const res = await fetch(`${API_BASE}/api/radio/now-playing`);
+    const base = getResolvedBaseUrl();
+    const res = await fetch(`${base}/api/radio/now-playing`);
     if (!res.ok) throw new Error('Falha ao obter dados da transmissão');
     return res.json();
   },
 
   async getProgramming(): Promise<ProgrammingShow[]> {
-    const res = await fetch(`${API_BASE}/api/radio/programming`);
+    const base = getResolvedBaseUrl();
+    const res = await fetch(`${base}/api/radio/programming`);
     if (!res.ok) throw new Error('Falha ao obter grade de programação');
     return res.json();
   },
 
   async getLibrary(): Promise<{ tracks: AudioTrack[]; stats: { count: number; totalBytes: number; totalDuration: number } }> {
-    const res = await fetch(`${API_BASE}/api/radio/library`);
+    const base = getResolvedBaseUrl();
+    const res = await fetch(`${base}/api/radio/library`);
     if (!res.ok) throw new Error('Falha ao obter biblioteca de áudio');
     return res.json();
   },
 
   async uploadTrack(file: File): Promise<{ success: boolean; track: AudioTrack; message: string }> {
+    const base = getResolvedBaseUrl();
     const formData = new FormData();
     formData.append('audioFile', file);
 
-    const res = await fetch(`${API_BASE}/api/radio/library/upload`, {
+    const res = await fetch(`${base}/api/radio/library/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -52,7 +94,8 @@ export const api = {
   },
 
   async updateTrack(id: string, updates: Partial<AudioTrack>): Promise<{ success: boolean; track: AudioTrack }> {
-    const res = await fetch(`${API_BASE}/api/radio/library/${id}`, {
+    const base = getResolvedBaseUrl();
+    const res = await fetch(`${base}/api/radio/library/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
@@ -62,7 +105,8 @@ export const api = {
   },
 
   async deleteTrack(id: string): Promise<{ success: boolean }> {
-    const res = await fetch(`${API_BASE}/api/radio/library/${id}`, {
+    const base = getResolvedBaseUrl();
+    const res = await fetch(`${base}/api/radio/library/${id}`, {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error('Falha ao excluir faixa');
@@ -70,7 +114,8 @@ export const api = {
   },
 
   async startAutoDJ(): Promise<{ success: boolean; status: NowPlayingData }> {
-    const res = await fetch(`${API_BASE}/api/radio/autodj/start`, {
+    const base = getResolvedBaseUrl();
+    const res = await fetch(`${base}/api/radio/autodj/start`, {
       method: 'POST',
     });
     if (!res.ok) {
@@ -81,7 +126,8 @@ export const api = {
   },
 
   async stopAutoDJ(): Promise<{ success: boolean }> {
-    const res = await fetch(`${API_BASE}/api/radio/autodj/stop`, {
+    const base = getResolvedBaseUrl();
+    const res = await fetch(`${base}/api/radio/autodj/stop`, {
       method: 'POST',
     });
     if (!res.ok) throw new Error('Falha ao parar Auto DJ');
@@ -89,7 +135,8 @@ export const api = {
   },
 
   async skipTrack(): Promise<{ success: boolean; status: NowPlayingData }> {
-    const res = await fetch(`${API_BASE}/api/radio/autodj/skip`, {
+    const base = getResolvedBaseUrl();
+    const res = await fetch(`${base}/api/radio/autodj/skip`, {
       method: 'POST',
     });
     if (!res.ok) throw new Error('Falha ao pular faixa');
@@ -97,7 +144,8 @@ export const api = {
   },
 
   async addToQueue(trackId: string, position: 'top' | 'bottom' = 'bottom'): Promise<{ success: boolean; queue: AudioTrack[] }> {
-    const res = await fetch(`${API_BASE}/api/radio/autodj/queue/add`, {
+    const base = getResolvedBaseUrl();
+    const res = await fetch(`${base}/api/radio/autodj/queue/add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ trackId, position }),
@@ -107,7 +155,8 @@ export const api = {
   },
 
   async removeFromQueue(index: number): Promise<{ success: boolean; queue: AudioTrack[] }> {
-    const res = await fetch(`${API_BASE}/api/radio/autodj/queue/${index}`, {
+    const base = getResolvedBaseUrl();
+    const res = await fetch(`${base}/api/radio/autodj/queue/${index}`, {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error('Falha ao remover da fila');
@@ -115,7 +164,8 @@ export const api = {
   },
 
   async reorderQueue(fromIndex: number, toIndex: number): Promise<{ success: boolean; queue: AudioTrack[] }> {
-    const res = await fetch(`${API_BASE}/api/radio/autodj/queue/reorder`, {
+    const base = getResolvedBaseUrl();
+    const res = await fetch(`${base}/api/radio/autodj/queue/reorder`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fromIndex, toIndex }),
@@ -128,7 +178,8 @@ export const api = {
     audio?: Partial<AudioSettings>;
     icecast?: Partial<IcecastConfig>;
   }): Promise<{ success: boolean; audioSettings: AudioSettings; icecastConfig: IcecastConfig }> {
-    const res = await fetch(`${API_BASE}/api/radio/settings`, {
+    const base = getResolvedBaseUrl();
+    const res = await fetch(`${base}/api/radio/settings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -138,16 +189,24 @@ export const api = {
   },
 
   async runDiagnostics(): Promise<DiagnosticResult> {
-    const res = await fetch(`${API_BASE}/api/radio/diagnostics`);
+    const base = getResolvedBaseUrl();
+    const res = await fetch(`${base}/api/radio/diagnostics`);
     if (!res.ok) throw new Error('Falha ao executar diagnóstico');
     return res.json();
   },
 
   getStreamUrl(): string {
-    return `${API_BASE}/api/radio/stream`;
+    const base = getResolvedBaseUrl();
+    return `${base}/api/radio/stream`;
+  },
+
+  getEventsUrl(): string {
+    const base = getResolvedBaseUrl();
+    return `${base}/api/radio/events`;
   },
 
   getPreviewUrl(trackId: string): string {
-    return `${API_BASE}/api/radio/library/${trackId}/preview`;
+    const base = getResolvedBaseUrl();
+    return `${base}/api/radio/library/${trackId}/preview`;
   },
 };

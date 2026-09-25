@@ -146,6 +146,7 @@ export default function App() {
         status={status}
         onToggleAutoDJ={handleToggleAutoDJ}
         loadingAction={loadingAction}
+        onRefresh={refreshData}
       />
 
       {/* Main Content Area */}

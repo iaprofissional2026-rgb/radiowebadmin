@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Radio, 
   Disc3, 
@@ -13,9 +13,14 @@ import {
   Play, 
   Square,
   Sparkles,
-  Volume2
+  Volume2,
+  Globe,
+  Settings2,
+  Check,
+  RotateCcw
 } from 'lucide-react';
 import { RadioStatus } from '../types';
+import { api, getResolvedBaseUrl } from '../services/api';
 
 interface HeaderProps {
   currentTab: string;
@@ -23,6 +28,7 @@ interface HeaderProps {
   status: RadioStatus | null;
   onToggleAutoDJ: () => void;
   loadingAction: boolean;
+  onRefresh: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -31,9 +37,18 @@ export const Header: React.FC<HeaderProps> = ({
   status,
   onToggleAutoDJ,
   loadingAction,
+  onRefresh,
 }) => {
   const isOnline = status?.online ?? false;
   const activeListeners = status?.activeListeners ?? 0;
+  const [showServerModal, setShowServerModal] = useState<boolean>(false);
+  const [serverUrlInput, setServerUrlInput] = useState<string>(getResolvedBaseUrl() || '');
+  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+
+  const isNetlify = typeof window !== 'undefined' && (
+    window.location.hostname.includes('netlify.app') || 
+    window.location.hostname.includes('taupe-dragon')
+  );
 
   const tabs = [
     { id: 'player', label: 'Player Público', icon: Radio },
@@ -44,6 +59,22 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'diagnostics', label: 'Diagnóstico', icon: Activity },
     { id: 'deploy', label: 'Docker & Apps', icon: Terminal },
   ];
+
+  const handleSaveServerUrl = () => {
+    api.setBaseUrl(serverUrlInput);
+    setSaveSuccess(true);
+    setTimeout(() => {
+      setSaveSuccess(false);
+      setShowServerModal(false);
+      onRefresh();
+    }, 1200);
+  };
+
+  const handleResetServerUrl = () => {
+    setServerUrlInput('');
+    api.setBaseUrl('');
+    onRefresh();
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-neutral-900/90 backdrop-blur-md border-b border-neutral-800">
@@ -77,6 +108,24 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Quick Broadcast Status & Master Switch */}
           <div className="flex items-center gap-3">
+            {/* Netlify/Server Endpoint Indicator */}
+            <button
+              onClick={() => {
+                setServerUrlInput(getResolvedBaseUrl());
+                setShowServerModal(true);
+              }}
+              className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-mono transition-colors ${
+                isNetlify
+                  ? 'bg-cyan-950/60 border-cyan-500/40 text-cyan-300 hover:bg-cyan-900/40'
+                  : 'bg-neutral-800/80 border-neutral-700 text-neutral-300 hover:bg-neutral-800'
+              }`}
+              title="Configurar servidor de transmissão backend"
+            >
+              <Globe className="w-3 h-3 text-cyan-400" />
+              <span>{isNetlify ? 'Netlify Conectado' : 'Servidor Backend'}</span>
+              <Settings2 className="w-3 h-3 ml-0.5 text-neutral-400" />
+            </button>
+
             {/* Real Status Badge */}
             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold ${
               isOnline 
@@ -152,6 +201,73 @@ export const Header: React.FC<HeaderProps> = ({
           })}
         </nav>
       </div>
+
+      {/* Backend Server Connection Modal */}
+      {showServerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+              <h3 className="font-bold text-base text-neutral-100 flex items-center gap-2">
+                <Globe className="w-4 h-4 text-cyan-400" />
+                <span>Servidor Backend de Transmissão</span>
+              </h3>
+              <button
+                onClick={() => setShowServerModal(false)}
+                className="text-neutral-400 hover:text-neutral-100 text-xs px-2 py-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-neutral-400">
+              Quando o frontend é hospedado na Netlify (<code className="text-cyan-300">taupe-dragon-883c66.netlify.app</code>), ele se conecta ao servidor backend VPS/Cloud onde o <strong>FFmpeg</strong> e o <strong>Auto DJ</strong> executam continuamente.
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-neutral-300 block">URL do Servidor Backend / Stream:</label>
+              <input
+                type="text"
+                value={serverUrlInput}
+                placeholder="https://ais-dev-zqepgxm3sm4ndvgrpz52jq-494631811355.us-east1.run.app"
+                onChange={(e) => setServerUrlInput(e.target.value)}
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-neutral-100 outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-neutral-800">
+              <button
+                onClick={handleResetServerUrl}
+                className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-200"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Restaurar Padrão</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowServerModal(false)}
+                  className="px-3 py-2 rounded-xl bg-neutral-800 text-neutral-300 text-xs font-semibold hover:bg-neutral-700"
+                >
+                  Fechar
+                </button>
+                <button
+                  onClick={handleSaveServerUrl}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold shadow-md transition-transform active:scale-95"
+                >
+                  {saveSuccess ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Conectado!</span>
+                    </>
+                  ) : (
+                    <span>Salvar & Conectar</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

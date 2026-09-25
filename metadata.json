@@ -1,0 +1,6 @@
+{
+  "name": "RealAudio FM - Automação & Streaming Icecast",
+  "description": "Sistema profissional de transmissão de rádio online com motor real FFmpeg, servidor Icecast/HTTP Streaming, Auto DJ contínuo, crossfade real, biblioteca de áudio e player com métricas reais.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

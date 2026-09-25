@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # 1. Icecast 2 Distribution Streaming Server
+  icecast:
+    image: infiniteproject/icecast:latest
+    container_name: realaudio_icecast
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ICECAST_SOURCE_PASSWORD=hackme
+      - ICECAST_ADMIN_PASSWORD=adminpass
+      - ICECAST_PASSWORD=relaypass
+    volumes:
+      - ./icecast.xml:/etc/icecast2/icecast.xml:ro
+      - icecast_logs:/var/log/icecast2
+    networks:
+      - radio_net
+
+  # 2. RealAudio Studio Backend & Auto DJ (Node.js + FFmpeg Core)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: realaudio_backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - ICECAST_ENABLED=true
+      - ICECAST_HOST=icecast
+      - ICECAST_PORT=8000
+      - ICECAST_MOUNT=/radio.mp3
+      - ICECAST_SOURCE_PASSWORD=hackme
+      - ICECAST_STREAM_NAME=RealAudio FM Live
+      - ICECAST_GENRE=Eclectic / Hits
+      - ICECAST_PUBLIC=false
+    volumes:
+      - radio_storage:/app/storage/music
+      - radio_uploads:/app/storage/uploads
+    depends_on:
+      - icecast
+    networks:
+      - radio_net
+
+volumes:
+  radio_storage:
+    driver: local
+  radio_uploads:
+    driver: local
+  icecast_logs:
+    driver: local
+
+networks:
+  radio_net:
+    driver: bridge
